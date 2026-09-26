@@ -41,6 +41,7 @@ Cada obra se agrega **al final** del array `window.MUSEO_CANALES` en `shaders.js
 | `t` | tiempo en segundos |
 | `f` | número de cuadro |
 | `m` | mouse, de 0 a 1 |
+| `clic` | `vec4`, extensión del museo: `xy` dónde fue el último clic o toque (0 a 1, como `m`), `z` = 1 mientras está apretado, `w` = el `t` en que empezó (`t-clic.w` = segundos desde el clic; antes del primero es muy grande) |
 | `o` | `vec4` de salida, arranca en 0 |
 | `hsv(h,s,v)`, `rotate2D(a)`, `rotate3D(a,eje)` | las funciones auxiliares de twigl |
 | `foto(u)`, `foto(u,suave)` | solo para obras con imagen (ver `obra-desde-imagen`) |

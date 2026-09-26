@@ -31,6 +31,9 @@ uniform float t;
 uniform float f;
 uniform vec2 m;
 uniform vec2 museoOrigen;
+// Extensión del museo (no existe en twigl): el último clic o toque.
+// xy = dónde fue (0 a 1, como m), z = 1 mientras está apretado, w = el t en que empezó.
+uniform vec4 clic;
 uniform sampler2D museoImagen;
 uniform vec2 museoImagenTam;
 out vec4 o;
@@ -166,7 +169,7 @@ void main(){
     }
     const u = (n) => gl.getUniformLocation(p, n);
     return {
-      p, r: u('r'), t: u('t'), f: u('f'), m: u('m'), a: u('a'), origen: u('museoOrigen'),
+      p, r: u('r'), t: u('t'), f: u('f'), m: u('m'), clic: u('clic'), a: u('a'), origen: u('museoOrigen'),
       imagen: u('museoImagen'), imagenTam: u('museoImagenTam'),
     };
   }
@@ -253,6 +256,7 @@ void main(){
     gl.uniform1f(prog.t, tiempo);
     if (prog.f) gl.uniform1f(prog.f, cuadros);
     if (prog.m) gl.uniform2f(prog.m, puntero.x, puntero.y);
+    if (prog.clic) gl.uniform4f(prog.clic, clic.x, clic.y, clic.apretado, clic.inicio);
     if (prog.a) gl.uniform1f(prog.a, extra?.alfa ?? 1);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
   }
@@ -279,6 +283,8 @@ void main(){
 
   let cuadros = 0;
   const puntero = { x: 0.5, y: 0.5 };
+  // inicio arranca muy en el pasado, así t - clic.w es grande antes del primer clic.
+  const clic = { x: 0.5, y: 0.5, apretado: 0, inicio: -1e4 };
 
   // El cambio de canal es siempre la misma secuencia: corte, nieve, sintonía.
   const CORTE = 70;
@@ -704,6 +710,19 @@ void main(){
     puntero.y = 1 - e.clientY / innerHeight;
     if (e.pointerType === 'mouse' && estado.modo === 'aire') mostrarMando();
   });
+
+  // Solo cuenta el clic sobre la obra, no sobre el mando ni el teletexto.
+  document.addEventListener('pointerdown', (e) => {
+    if (estado.modo !== 'aire' || e.button !== 0 || e.target.closest('button, a, .mando, .teletexto')) return;
+    puntero.x = clic.x = e.clientX / innerWidth;
+    puntero.y = clic.y = 1 - e.clientY / innerHeight;
+    clic.apretado = 1;
+    clic.inicio = estado.tiempo;
+  });
+  const soltar = () => { clic.apretado = 0; };
+  document.addEventListener('pointerup', soltar);
+  document.addEventListener('pointercancel', soltar);
+  addEventListener('blur', soltar);
 
   addEventListener('popstate', () => {
     const n = canalDesdeHash();
