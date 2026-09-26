@@ -34,6 +34,12 @@ uniform vec2 museoOrigen;
 // Extensión del museo (no existe en twigl): el último clic o toque.
 // xy = dónde fue (0 a 1, como m), z = 1 mientras está apretado, w = el t en que empezó.
 uniform vec4 clic;
+// Extensión del museo (no existe en twigl): 1 mientras hay un mouse sobre la página, 0 si no.
+uniform float hayMouse;
+// Extensión del museo (no existe en twigl): una chispa que va hacia la x del mouse a la
+// velocidad máxima de un vaivén (.5+.275*sin(t*.5)) y, sin mouse, vuelve a él.
+// chispa[i] = dónde estaba (x de 0 a 1, como m) hace i*.07 s.
+uniform float chispa[40];
 uniform sampler2D museoImagen;
 uniform vec2 museoImagenTam;
 out vec4 o;
@@ -169,7 +175,7 @@ void main(){
     }
     const u = (n) => gl.getUniformLocation(p, n);
     return {
-      p, r: u('r'), t: u('t'), f: u('f'), m: u('m'), clic: u('clic'), a: u('a'), origen: u('museoOrigen'),
+      p, r: u('r'), t: u('t'), f: u('f'), m: u('m'), clic: u('clic'), hayMouse: u('hayMouse'), chispa: u('chispa'), a: u('a'), origen: u('museoOrigen'),
       imagen: u('museoImagen'), imagenTam: u('museoImagenTam'),
     };
   }
@@ -257,6 +263,8 @@ void main(){
     if (prog.f) gl.uniform1f(prog.f, cuadros);
     if (prog.m) gl.uniform2f(prog.m, puntero.x, puntero.y);
     if (prog.clic) gl.uniform4f(prog.clic, clic.x, clic.y, clic.apretado, clic.inicio);
+    if (prog.hayMouse) gl.uniform1f(prog.hayMouse, puntero.mouse);
+    if (prog.chispa) gl.uniform1fv(prog.chispa, chispa.v);
     if (prog.a) gl.uniform1f(prog.a, extra?.alfa ?? 1);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
   }
@@ -282,7 +290,7 @@ void main(){
   const escalaMax = () => Math.min(window.devicePixelRatio || 1, 1.5);
 
   let cuadros = 0;
-  const puntero = { x: 0.5, y: 0.5 };
+  const puntero = { x: 0.5, y: 0.5, mouse: 0 };
   // inicio arranca muy en el pasado, así t - clic.w es grande antes del primer clic.
   const clic = { x: 0.5, y: 0.5, apretado: 0, inicio: -1e4 };
 
@@ -390,13 +398,36 @@ void main(){
     }
   }
 
+  // La chispa: persigue la x del mouse sin pasar la velocidad máxima del vaivén (sin mouse,
+  // persigue al vaivén hasta alcanzarlo). Guarda su recorrido para ubicar lo que ya soltó.
+  const vaiven = (t) => 0.5 + 0.275 * Math.sin(t / 2);
+  const chispa = { x: 0.5, huella: [], v: new Float32Array(40) };
+
+  function moverChispa(dt) {
+    const t = estado.tiempo;
+    const meta = puntero.mouse ? Math.min(Math.max(puntero.x, 0.02), 0.98) : vaiven(t);
+    const paso = 0.1375 * dt;
+    chispa.x += Math.max(-paso, Math.min(paso, meta - chispa.x));
+    const h = chispa.huella;
+    h.push(t, chispa.x);
+    while (h.length > 4 && h[2] < t - 3) h.splice(0, 2);
+    let j = h.length - 2;
+    for (let i = 0; i < 40; i++) {
+      const s = t - i * 0.07;
+      while (j > 0 && h[j] > s) j -= 2;
+      if (h[j] > s) chispa.v[i] = vaiven(s);
+      else if (j + 2 >= h.length) chispa.v[i] = h[j + 1];
+      else chispa.v[i] = h[j + 1] + (h[j + 3] - h[j + 1]) * (s - h[j]) / Math.max(h[j + 2] - h[j], 1e-6);
+    }
+  }
+
   let previo = 0;
 
   function cuadro(ahora) {
     requestAnimationFrame(cuadro);
     const dt = previo ? Math.min(ahora - previo, 100) : 0;
     previo = ahora;
-    if (!estado.pausa) { estado.tiempo += dt / 1000; cuadros++; }
+    if (!estado.pausa) { estado.tiempo += dt / 1000; cuadros++; moverChispa(dt / 1000); }
     if (gl.isContextLost()) return;
     if (estado.modo === 'guia') dibujarGuia();
     else dibujarAire(ahora);
@@ -575,11 +606,12 @@ void main(){
     ui.ttFin.textContent = `Fin de la página P1${pad(c.n)}`;
     ui.ttTitulo.textContent = c.titulo;
     let fuente = 'sin fuente';
-    if (c.fuente) {
+    // Solo https: una fuente javascript: o data: se ejecutaría al hacer clic.
+    if (c.fuente && /^https:\/\//i.test(c.fuente)) {
       fuente = document.createElement('a');
       fuente.href = c.fuente;
       fuente.target = '_blank';
-      fuente.rel = 'noopener';
+      fuente.rel = 'noopener noreferrer';
       fuente.textContent = c.fuente.replace(/^https?:\/\//, '').replace(/\/$/, '');
     }
     ui.ttDatos.replaceChildren(
@@ -708,8 +740,10 @@ void main(){
   document.addEventListener('pointermove', (e) => {
     puntero.x = e.clientX / innerWidth;
     puntero.y = 1 - e.clientY / innerHeight;
+    puntero.mouse = e.pointerType === 'mouse' ? 1 : 0;
     if (e.pointerType === 'mouse' && estado.modo === 'aire') mostrarMando();
   });
+  document.documentElement.addEventListener('pointerleave', () => { puntero.mouse = 0; });
 
   // Solo cuenta el clic sobre la obra, no sobre el mando ni el teletexto.
   document.addEventListener('pointerdown', (e) => {
@@ -722,7 +756,7 @@ void main(){
   const soltar = () => { clic.apretado = 0; };
   document.addEventListener('pointerup', soltar);
   document.addEventListener('pointercancel', soltar);
-  addEventListener('blur', soltar);
+  addEventListener('blur', () => { soltar(); puntero.mouse = 0; });
 
   addEventListener('popstate', () => {
     const n = canalDesdeHash();
