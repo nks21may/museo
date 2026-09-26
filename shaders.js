@@ -37,14 +37,16 @@ window.MUSEO_CANALES = [
     fuente: null,
     fecha: '2026-09-25',
     imagen: 'obras/solaire.jpg',
-    codigo: String.raw`#define ZOOM 1.
-#define CENTRO vec2(0,.1)
+    codigo: String.raw`#define ZOOM entera()
+#define CENTRO vec2(0)
 #define PIXEL 3.
 #define CONTRASTE 1.6
 #define BORDE .42
 #define TINTA vec3(.93,.9,.85)
 #define ACENTO vec3(1,.1,.06)
-float px=max(PIXEL,floor(r.y/300.)),T=floor(t*12.);vec2 P=floor(FC.xy/px),u=((P+.5)*px/r-.5)/ZOOM+.5+CENTRO,e=vec2(px*2./r.x,0);float L=dot(foto(u,1.).rgb,vec3(.3,.59,.11));L=clamp((L-.5)*CONTRASTE+.5,0.,1.);float n=fract(52.9829*fract(dot(P+T*vec2(5.3,1.7),vec2(.0671,.0058)))),E=length(foto(u+e,2.).rgb-foto(u-e,2.).rgb)+length(foto(u+e.yx,2.).rgb-foto(u-e.yx,2.).rgb),k=step(.97,fract(sin(P.y*.1+floor(t*3.))*43758.5));o=vec4(mix(TINTA*step(n,L),ACENTO,step(BORDE,E)*step(.45,n))*(1.-.6*k*step(.5,fract(P.x*.05+t))),1);`,
+#define RAYOS 8.
+#define FUNDIDO .06
+float px=max(PIXEL,floor(r.y/300.)),T=floor(t*12.);vec2 P=floor(FC.xy/px),u=((P+.5)*px/r-.5)/ZOOM+.5+CENTRO,e=vec2(px*2./r.x,0),p=((P+.5)*px-.5*r)/r.y;float w=smoothstep(0.,FUNDIDO,margen(u)),L=dot(foto(u,1.).rgb,vec3(.3,.59,.11));L=clamp((L-.5)*CONTRASTE+.5,0.,1.);float n=fract(52.9829*fract(dot(P+T*vec2(5.3,1.7),vec2(.0671,.0058)))),E=(length(foto(u+e,2.).rgb-foto(u-e,2.).rgb)+length(foto(u+e.yx,2.).rgb-foto(u-e.yx,2.).rgb))*step(.99,w),k=step(.97,fract(sin(P.y*.1+floor(t*3.))*43758.5)),d=length(p),a=atan(p.y,p.x),R=smoothstep(.1,.8,cos(RAYOS*a+t*.12+sin(d*9.-t*.7)*.7))*smoothstep(1.5,.35,d),h=fract(sin(dot(P-vec2(0,floor(t*14.)),vec2(12.9898,78.233)))*43758.5);vec3 F=mix(TINTA*step(n,.05*exp(-d*1.2)),ACENTO,step(n,R*.75))+TINTA*step(.997,h)*step(.3,R+.2),I=mix(TINTA*step(n,L),ACENTO,step(BORDE,E)*step(.45,n));o=vec4(mix(F,I,step(fract(n*7.31),w))*(1.-.6*k*step(.5,fract(P.x*.05+t))),1);`,
   },
   {
     titulo: 'Avenida Neón',

@@ -56,7 +56,7 @@ ffmpeg -y -i "<origen>" -vf "scale='min(1600,iw)':'min(1600,ih)':force_original_
 
 | Parámetro | Efecto | Qué hace |
 |---|---|---|
-| `ZOOM` | todos | 1 = la imagen cubre la obra (recortada como `object-fit: cover`). Mayor que 1 acerca |
+| `ZOOM` | todos | 1 = la imagen cubre la obra (recortada como `object-fit: cover`). Mayor que 1 acerca. `entera()` la muestra completa (`contain`); fuera de la imagen `foto()` da negro |
 | `CENTRO` | todos | desplaza el encuadre. `vec2(0,.2)` muestra más de **arriba** de la imagen, `vec2(.2,0)` más de la **derecha** |
 | `SENS` | trazos | cuánto gradiente cuenta como borde. Subilo si salen pocos trazos, bajalo si todo es ruido |
 | `SUAVE` | trazos | nivel de desenfoque antes de buscar bordes. Subilo (3–4) si la imagen tiene textura fina, como pinceladas, craquelado o ruido de foto |
@@ -102,6 +102,7 @@ Si la imagen es de otra persona, recordale en una línea que el museo la publica
 
 Se puede escribir un efecto nuevo con la misma interfaz:
 - `foto(u)` o `foto(u, suave)`, con `u` de 0 a 1 dentro de la obra y `suave` = nivel de mipmap
+- `margen(u)`: distancia al borde de la imagen (negativa afuera), para fundirla con un fondo inventado. Ejemplo: Solaire de Astora
 - `#define` para los parámetros al principio
 - estilo twigl
 

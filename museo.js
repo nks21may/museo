@@ -37,11 +37,20 @@ out vec4 o;
 // Extensión del museo (no existe en twigl): la imagen de la obra, recortada para cubrir
 // el cuadro como object-fit: cover. u va de 0 a 1 dentro de la obra (FC.xy/r).
 // suave es el nivel de mipmap: 0 = nítida, cada +1 promedia el doble de píxeles.
-vec4 foto(vec2 u,float suave){
+// Fuera de la imagen devuelve negro.
+vec2 fotoUV(vec2 u){
   float ra=r.x/r.y,ri=museoImagenTam.x/museoImagenTam.y;
-  return textureLod(museoImagen,(u-.5)*(ra>ri?vec2(1,ri/ra):vec2(ra/ri,1))+.5,suave);
+  return (u-.5)*(ra>ri?vec2(1,ri/ra):vec2(ra/ri,1))+.5;
+}
+vec4 foto(vec2 u,float suave){
+  vec2 c=fotoUV(u);
+  return c==clamp(c,0.,1.)?textureLod(museoImagen,c,suave):vec4(0,0,0,1);
 }
 vec4 foto(vec2 u){return foto(u,0.);}
+// Distancia de u al borde de la imagen, en unidades de la imagen (0 a .5 adentro, negativa afuera).
+float margen(vec2 u){vec2 c=fotoUV(u);c=min(c,1.-c);return min(c.x,c.y);}
+// El zoom que muestra la imagen entera (object-fit: contain), para usar como ZOOM.
+float entera(){float a=r.x/r.y/(museoImagenTam.x/museoImagenTam.y);return min(a,1./a);}
 mat2 rotate2D(float a){return mat2(cos(a),sin(a),-sin(a),cos(a));}
 mat3 rotate3D(float angle,vec3 axis){
   vec3 a=normalize(axis);float s=sin(angle),c=cos(angle),k=1.-c;
