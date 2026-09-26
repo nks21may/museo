@@ -1,0 +1,33 @@
+services:
+  museo:
+    # La imagen la construye y publica GitHub Actions en cada push a main
+    # (.github/workflows/deploy.yml); el VPS solo la baja. El `build:` sirve para
+    # probar local: `docker compose up -d --build`.
+    #
+    # IMAGE_TAG es el rollback: cada build queda tagueado con su SHA y se
+    # conservan los últimos cinco. `IMAGE_TAG=<sha> docker compose up -d`.
+    image: ghcr.io/nks21may/museo:${IMAGE_TAG:-latest}
+    build:
+      context: .
+    container_name: museo
+    restart: unless-stopped
+    # Solo loopback: el único que tiene que llegar es cloudflared.
+    #   /etc/cloudflared/config.yml
+    #     - hostname: museo.nicolasdalessandro.dev
+    #       service: http://127.0.0.1:8420
+    ports:
+      - "127.0.0.1:8420:8080"
+    # Sirve archivos y nada más: sin escritura, sin capabilities, sin escalar.
+    # nginx solo necesita /tmp para el pid y los temporales.
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

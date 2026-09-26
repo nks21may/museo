@@ -1,0 +1,14 @@
+# Dispara museo-deploy.service cada dos minutos.
+#
+# Polling y no webhook porque el VPS no tiene ingreso abierto: para que GitHub
+# le avise haría falta un hostname más en el tunnel con Service Auth de Access.
+
+[Unit]
+Description=Chequea deploys nuevos del museo
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=2min
+
+[Install]
+WantedBy=timers.target

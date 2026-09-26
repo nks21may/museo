@@ -1,0 +1,10 @@
+# El Dockerfile copia con lista blanca; esto solo achica el contexto de build
+# para que no viajen al daemon cosas que igual no entran a la imagen.
+.git
+.github
+.claude
+.impeccable
+herramientas
+twigl
+*.md
+*.cmd

@@ -1,0 +1,48 @@
+# Baja el build más reciente de GHCR y recrea el contenedor si cambió.
+#
+# Esta unidad y su .timer viven en el repo pero corren en el VPS. Instalación,
+# una sola vez (el `docker login ghcr.io` ya está hecho por bot_discord y el PAT
+# con read:packages sirve para todos los packages de la cuenta):
+#
+#   git clone git@github.com:nks21may/museo.git /home/ubuntu/museo
+#   cd /home/ubuntu/museo && docker compose pull && docker compose up -d
+#   sudo cp deploy/museo-deploy.{service,timer} /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now museo-deploy.timer
+#
+# Y en /etc/cloudflared/config.yml, antes del catch-all:
+#   - hostname: museo.nicolasdalessandro.dev
+#     service: http://127.0.0.1:8420
+# más el DNS:  cloudflared tunnel route dns <tunnel> museo.nicolasdalessandro.dev
+#              sudo systemctl restart cloudflared
+#
+# Para ver qué hizo el último ciclo:  journalctl -u museo-deploy.service -n 50
+
+[Unit]
+Description=Actualiza el museo desde GHCR
+After=snap.docker.dockerd.service
+Requires=snap.docker.dockerd.service
+
+[Service]
+Type=oneshot
+User=ubuntu
+WorkingDirectory=/home/ubuntu/museo
+
+# Explícito: si HOME no apunta a donde quedó el `docker login`, el pull falla con
+# "denied" y parece un problema de permisos del registry.
+Environment=HOME=/home/ubuntu
+
+# git pull para que los cambios del compose lleguen al VPS; --ff-only para que
+# un clon con cambios locales falle limpio en vez de mergear a ciegas.
+ExecStart=/usr/bin/git pull --ff-only
+ExecStart=/snap/bin/docker compose pull
+
+# Compose recrea el contenedor solo si cambió la imagen: los ciclos sin push
+# son no-ops.
+ExecStart=/snap/bin/docker compose up -d
+
+# La `latest` anterior queda dangling después del pull.
+ExecStart=/snap/bin/docker image prune -f
+
+[Install]
+WantedBy=multi-user.target
