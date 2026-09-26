@@ -8,3 +8,6 @@ herramientas
 twigl
 *.md
 *.cmd
+# Los PNG no se publican nunca: son capturas de revisión. Las obras van en .jpg
+# o .webp (ver .claude/skills/obra-desde-imagen).
+**/*.png

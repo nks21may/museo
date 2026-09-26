@@ -15,9 +15,25 @@ const tipos = {
 
 export async function servir(puerto = 0) {
   const servidor = http.createServer((req, res) => {
-    const ruta = decodeURIComponent(new URL(req.url, 'http://x').pathname);
+    // Solo loopback por nombre: otro Host es una página ajena haciendo DNS rebinding.
+    const { port } = servidor.address();
+    if (req.headers.host !== `127.0.0.1:${port}` && req.headers.host !== `localhost:${port}`) {
+      res.writeHead(403).end();
+      return;
+    }
+    let ruta;
+    try {
+      ruta = decodeURIComponent(new URL(req.url, 'http://x').pathname);
+    } catch {
+      res.writeHead(400).end();
+      return;
+    }
     const archivo = path.join(raiz, ruta === '/' ? 'index.html' : ruta);
-    if (!archivo.startsWith(raiz) || !fs.existsSync(archivo) || fs.statSync(archivo).isDirectory()) {
+    // path.relative y no startsWith: con startsWith, /..%2fmuseo2/x pasaría a P:\museo2.
+    // Los segmentos con punto dejan afuera .git, .claude y compañía.
+    const rel = path.relative(raiz, archivo);
+    if (rel.startsWith('..') || path.isAbsolute(rel) || rel.split(path.sep).some((p) => p.startsWith('.'))
+      || !fs.existsSync(archivo) || fs.statSync(archivo).isDirectory()) {
       res.writeHead(404).end();
       return;
     }

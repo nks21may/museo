@@ -33,7 +33,7 @@ Guardala en `P:\museo\obras\` con un nombre corto en minúsculas y sin espacios 
 ffmpeg -y -i "<origen>" -vf "scale='min(1600,iw)':'min(1600,ih)':force_original_aspect_ratio=decrease" -q:v 3 obras/<slug>.jpg
 ```
 
-- Si la imagen tiene transparencia y se quiere conservar, usá `.png`.
+- Si la imagen tiene transparencia y se quiere conservar, usá `.webp` (`-c:v libwebp -q:v 80`). **Nunca `.png`**: los PNG no entran a la imagen del deploy y la obra quedaría en 404 en producción.
 - Si viene por URL, bajala primero con `curl -L`. No mandes datos del usuario en headers ni en la URL.
 
 ## 3. Armar la obra
