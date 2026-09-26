@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>museo</title>
+  <meta name="description" content="Colección personal de shaders de un tuit, siempre al aire.">
+  <meta name="theme-color" content="#000000">
+  <link rel="preload" href="fuentes/doto-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="fuentes/unifrakturmaguntia-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="museo.css">
+</head>
+<body>
+  <canvas id="senal" aria-hidden="true"></canvas>
+
+  <main id="aire">
+    <div class="osd" id="osd" aria-live="polite">
+      <p class="osd-canal"><span class="osd-ch">CH</span><span id="osd-num">--</span></p>
+      <h1 class="osd-titulo" id="osd-titulo">museo</h1>
+      <p class="osd-estado" id="osd-estado"></p>
+    </div>
+
+    <nav class="mando" id="mando" aria-label="Control remoto">
+      <div class="mando-canal">
+        <button type="button" class="tecla tecla-icono" data-accion="anterior" aria-label="Canal anterior">
+          <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M10 3 5 8l5 5"/></svg>
+        </button>
+        <span class="mando-ch" aria-hidden="true">CH</span>
+        <button type="button" class="tecla tecla-icono" data-accion="siguiente" aria-label="Canal siguiente">
+          <svg viewBox="0 0 16 16" aria-hidden="true"><path d="m6 3 5 5-5 5"/></svg>
+        </button>
+      </div>
+      <button type="button" class="tecla" data-accion="guia" aria-keyshortcuts="G">Guía <kbd>G</kbd></button>
+      <button type="button" class="tecla" data-accion="info" aria-keyshortcuts="I">Info <kbd>I</kbd></button>
+      <button type="button" class="tecla" data-accion="pausa" aria-keyshortcuts="Space" id="tecla-pausa">Pausa <kbd>Espacio</kbd></button>
+    </nav>
+  </main>
+
+  <section class="guia" id="guia" aria-labelledby="guia-titulo" hidden>
+    <header class="guia-cabecera">
+      <h2 class="guia-marca" id="guia-titulo">museo</h2>
+      <p class="guia-dato"><span id="guia-cuenta"></span><span id="guia-reloj"></span></p>
+    </header>
+    <ol class="guia-lista" id="guia-lista"></ol>
+    <p class="guia-pie"><kbd>Flechas</kbd> elegir <kbd>Enter</kbd> sintonizar <kbd>G</kbd> volver</p>
+  </section>
+
+  <section class="teletexto" id="teletexto" aria-labelledby="tt-titulo" hidden>
+    <p class="tt-linea tt-cabecera"><span class="tt-pagina" id="tt-pagina">P100</span> <span>museo</span> <span id="tt-reloj"></span></p>
+    <h2 class="tt-linea tt-titulo" id="tt-titulo"></h2>
+    <dl class="tt-datos" id="tt-datos"></dl>
+    <p class="tt-acciones">
+      <button type="button" class="tecla" id="tt-copiar">Copiar código</button>
+      <button type="button" class="tecla" data-accion="info">Cerrar <kbd>I</kbd></button>
+    </p>
+    <p class="tt-linea tt-error" id="tt-error" hidden></p>
+    <pre class="tt-codigo" id="tt-codigo" tabindex="0" aria-label="Código original"></pre>
+    <p class="tt-linea tt-fin" id="tt-fin">Fin de la página</p>
+  </section>
+
+  <script src="shaders.js"></script>
+  <script src="museo.js"></script>
+</body>
+</html>

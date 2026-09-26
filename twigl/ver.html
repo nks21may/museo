@@ -1,0 +1,62 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>twigl · visor</title>
+<style>
+html,body{margin:0;background:#000;overflow:hidden;font:12px monospace}
+canvas{display:block;width:100vw;height:100vh}
+nav{position:fixed;top:12px;left:12px;display:flex;gap:6px}
+nav button{background:#000;color:#ede6d9;border:1px solid #444;padding:4px 10px;font:inherit;cursor:pointer}
+nav button.on{border-color:#ff1a10;color:#ff1a10}
+#err{position:fixed;bottom:0;left:0;color:#f55;white-space:pre}
+</style>
+<canvas id="c"></canvas><nav id="nav"></nav><div id="err"></div>
+<script src="obras.js"></script>
+<script>
+// Emula el modo "geekest (300 es)" de twigl: el cuerpo va dentro de main().
+const cv = document.getElementById('c'), gl = cv.getContext('webgl2');
+const head = `#version 300 es
+precision highp float;
+uniform vec2 r;uniform vec2 m;uniform float t;uniform float f;uniform float s;uniform sampler2D b;
+out vec4 o;
+#define FC gl_FragCoord
+void main(){
+`;
+const bf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, bf);
+gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1,3,-1,-1,3]), gl.STATIC_DRAW);
+gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+function sh(type, src) {
+  const x = gl.createShader(type); gl.shaderSource(x, src); gl.compileShader(x);
+  if (!gl.getShaderParameter(x, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(x));
+  return x;
+}
+let prog, ur, ut, t0 = performance.now();
+function load(name) {
+  document.getElementById('err').textContent = '';
+  try {
+    const p = gl.createProgram();
+    gl.attachShader(p, sh(gl.VERTEX_SHADER, `#version 300 es
+in vec2 a;void main(){gl_Position=vec4(a,0,1);}`));
+    gl.attachShader(p, sh(gl.FRAGMENT_SHADER, head + OBRAS[name] + '\n}'));
+    gl.linkProgram(p); gl.useProgram(p);
+    prog = p; ur = gl.getUniformLocation(p, 'r'); ut = gl.getUniformLocation(p, 't');
+    t0 = performance.now();
+  } catch (e) { document.getElementById('err').textContent = e.message; }
+  for (const b of document.querySelectorAll('nav button')) b.classList.toggle('on', b.textContent === name);
+  location.hash = name;
+}
+for (const name of Object.keys(OBRAS)) {
+  const b = document.createElement('button'); b.textContent = name; b.onclick = () => load(name);
+  document.getElementById('nav').append(b);
+}
+load(OBRAS[location.hash.slice(1)] ? location.hash.slice(1) : Object.keys(OBRAS)[0]);
+(function frame() {
+  const w = innerWidth * devicePixelRatio | 0, h = innerHeight * devicePixelRatio | 0;
+  if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
+  if (prog) {
+    gl.viewport(0, 0, w, h);
+    gl.uniform2f(ur, w, h); gl.uniform1f(ut, (performance.now() - t0) / 1000);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+  }
+  requestAnimationFrame(frame);
+})();
+</script>

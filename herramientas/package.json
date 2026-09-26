@@ -1,0 +1,9 @@
+{
+  "name": "museo-herramientas",
+  "private": true,
+  "type": "module",
+  "description": "Verificación del museo en Chrome con GPU. El museo en sí no usa dependencias.",
+  "dependencies": {
+    "playwright-core": "^1.55.0"
+  }
+}
