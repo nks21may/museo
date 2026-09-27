@@ -17,15 +17,18 @@ services:
     #       service: http://127.0.0.1:8420
     ports:
       - "127.0.0.1:8420:8080"
-    # Sirve archivos y nada más: sin escritura, sin capabilities, sin escalar.
-    # nginx solo necesita /tmp para el pid y los temporales.
+    # Sirve archivos y nada más: sin escritura y sin capabilities (y la imagen ya
+    # corre como usuario sin privilegios). nginx solo necesita /tmp para el pid y
+    # los temporales.
+    #
+    # Sin `no-new-privileges` a propósito: con el Docker de snap, AppArmor le
+    # niega al contenedor la transición al perfil docker-default y el arranque
+    # muere con "exec /docker-entrypoint.sh: operation not permitted".
     read_only: true
     tmpfs:
       - /tmp
     cap_drop:
       - ALL
-    security_opt:
-      - no-new-privileges:true
     logging:
       driver: json-file
       options:
