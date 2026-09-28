@@ -11,6 +11,7 @@ export const raiz = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '
 const tipos = {
   '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.woff2': 'font/woff2',
   '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png', '.webp': 'image/webp',
+  '.svg': 'image/svg+xml', '.ico': 'image/x-icon',
 };
 
 export async function servir(puerto = 0) {
