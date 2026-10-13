@@ -1,6 +1,6 @@
 ---
 name: obra-desde-imagen
-description: Convierte una imagen (foto, pintura, captura) en una obra viva del museo de P:\museo, aplicándole un efecto shader en tiempo real (trazos rojos sobre bordes estilo YUDHO, semitono o grano 1-bit) y la verifica en Chrome con GPU. Usar cuando el usuario pasa una imagen o un link a una imagen para sumar a la colección.
+description: Convierte una imagen (foto, pintura, captura) o un texto en una obra viva del museo de P:\museo, aplicándole un efecto shader en tiempo real (trazos rojos sobre bordes estilo YUDHO, semitono o grano 1-bit) y la verifica en Chrome con GPU. Usar cuando el usuario pasa una imagen o un link a una imagen para sumar a la colección.
 ---
 
 # Obra desde imagen
@@ -97,6 +97,16 @@ Contale al usuario:
 - los créditos que quedaron en `null`
 
 Si la imagen es de otra persona, recordale en una línea que el museo la publica si lo sube a un hosting.
+
+## Desde un texto (cartel)
+
+Si en lugar de una imagen el usuario quiere una palabra, una frase o un reloj, la obra lleva un `cartel`: HTML que la obra lee con `foto()` igual que una imagen, y que se maqueta solo en cada pantalla. Los efectos son los mismos; `trazos` va muy bien con tipografía grande sobre negro. Ejemplo: `Hora oficial` en `shaders.js`.
+
+- El cartel ya tiene fondo negro y el contenido centrado. Usá las fuentes del museo (`var(--gotica)`, `var(--osd)`, `var(--mono)`) y tamaños en `vw`/`vh`, **grandes**: los efectos trabajan con trazos de ~1/140 del alto y la letra chica se vuelve ruido.
+- **Los estilos van en `museo.css`**, en la sección de carteles, con una clase propia. Nunca `style="..."` ni `<style>` en el cartel: la CSP del sitio los bloquea y en producción el cartel saldría sin estilos (en local no se nota, el servidor de prueba no manda CSP). Para el celular, `@media (orientation: portrait)`.
+- `data-reloj` muestra la hora (`"h"`, `"m"`, `"s"` para una parte), `"fecha"` el día (`28.09.2026`, o `"dia"`, `"mes"`, `"anio"` por partes) y `"semana"` el día de la semana.
+- Solo se ve en Chrome con HTML-in-Canvas. Para el resto hace falta `imagen: 'obras/<slug>.jpg'` como respaldo, que se genera con `node herramientas/cartel.mjs <canal>` **después** de agregar la obra.
+- Verificá dos veces: `node herramientas/verificar.mjs <canal>` mira el respaldo (sin flag); el cartel en vivo se mira abriendo Chrome con `--enable-blink-features=CanvasDrawElement`.
 
 ## Si ningún efecto sirve
 

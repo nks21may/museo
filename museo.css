@@ -66,6 +66,48 @@ kbd {
   pointer-events: none;
 }
 
+/* Con HTML-in-Canvas, el OSD, el teletexto y los carteles van dentro del canvas, cada uno
+   en una capa del tamaño del canvas (ver «HTML en la señal» en museo.js). Los hijos del
+   canvas se apilan como bloques: la grilla los superpone. */
+#senal[layoutsubtree] { display: grid; }
+
+.en-senal {
+  grid-area: 1 / 1;
+  position: relative;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.en-senal .teletexto { position: absolute; }
+
+/* El cartel de una obra: HTML que la obra lee con foto(). No se ve tal cual. */
+.cartel {
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background: var(--negro);
+  color: var(--blanco);
+}
+
+/* Los estilos de cada cartel van acá y no en la ficha: la CSP del sitio no deja estilos
+   inline. Letra grande: los efectos trabajan con trazos de ~1/140 del alto. */
+
+/* Hora oficial: en una línea apaisado, en columna en el celular. */
+.hora-oficial {
+  margin: 0;
+  display: flex;
+  justify-content: center;
+  font: 900 min(30vh, 15.5vw) / .8 var(--osd);
+  letter-spacing: -.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (orientation: portrait) {
+  .hora-oficial { flex-direction: column; align-items: center; font-size: min(22vh, 40vw); }
+  .hora-oficial .sep { display: none; }
+}
+
 /* ——— OSD: el canal que está al aire ——— */
 
 .osd {
@@ -359,6 +401,8 @@ kbd {
   line-height: 1.55;
   color: var(--blanco);
 }
+
+.teletexto { pointer-events: auto; }
 
 .teletexto::-webkit-scrollbar { width: 4px; }
 .teletexto::-webkit-scrollbar-thumb { background: var(--gris-bajo); }

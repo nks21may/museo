@@ -136,6 +136,54 @@ void main(){
   o=vec4(vec3(n*.9),a);
 }`;
 
+  // El OSD y el teletexto cuando viajan dentro de la señal (ver «HTML en la señal»): la obra
+  // llega en escena, el OSD en rotulo y la página del teletexto en pagina, y las dos capas
+  // pasan por el tubo encima de la obra.
+  const TUBO = `#version 300 es
+precision highp float;
+uniform vec2 r;
+uniform float t;
+uniform float k;
+uniform float alfa;
+uniform float interferencia;
+uniform float ruidoRotulo;
+uniform float vivo;
+uniform sampler2D escena;
+uniform sampler2D rotulo;
+uniform sampler2D pagina;
+out vec4 o;
+float h(vec2 p){return fract(sin(dot(p,vec2(12.9898,78.233)))*43758.5453);}
+float cuadro;
+// Una capa vista a través del tubo. ruido: 0 estable, 1 sin enganchar. golpe: 1 en los
+// cuadros sueltos en que la señal da un tirón.
+vec4 capa(sampler2D s,vec2 px,float ruido,float golpe){
+  // Tirones: unas franjas de renglones se corren de lado, como una señal que engancha mal.
+  float franja=floor(px.y/k/(4.+20.*h(vec2(cuadro,.37))));
+  float salta=step(1.-(.07*golpe+.5*ruido),h(vec2(franja,cuadro)));
+  vec2 c=px+vec2(salta*(h(vec2(franja,cuadro+.5))-.5)*(6.+70.*ruido)*k,0);
+  // Aberración: el rojo y el azul no caen del todo donde el verde.
+  vec2 ab=vec2((.75+3.*ruido)*k,0);
+  vec4 g=texture(s,c/r);
+  vec3 col=vec3(texture(s,(c+ab)/r).r,g.g,texture(s,(c-ab)/r).b);
+  // Nieve mientras la señal no engancha.
+  col=mix(col,vec3(.9*h(floor(px/(1.5*k))+cuadro*vec2(7.13,3.71))),ruido*.45);
+  return vec4(col,g.a);
+}
+void main(){
+  vec2 px=gl_FragCoord.xy;
+  cuadro=floor(t*24.);
+  // El OSD sale del aparato, no de la emisión: comparte el tubo pero no los tirones sueltos.
+  vec4 a=capa(rotulo,px,ruidoRotulo,0.);
+  vec4 b=capa(pagina,px,interferencia,step(.95,h(vec2(cuadro,.71)))*vivo);
+  // Renglones de barrido cada 3 px y una banda clara que baja despacio.
+  float barrido=(.84+.16*smoothstep(0.,.6,abs(sin(px.y/k*1.0472))))
+    *(1.+.08*vivo*smoothstep(.97,1.,sin(px.y/r.y*2.-t*.6)));
+  vec3 col=texture(escena,px/r).rgb;
+  col=mix(col,a.rgb*barrido,a.a);
+  col=mix(col,b.rgb*barrido,b.a*alfa);
+  o=vec4(col,1);
+}`;
+
   // ————————————————————————————————————————————— WebGL
 
   const gl = canvas.getContext('webgl2', {
@@ -194,12 +242,14 @@ void main(){
     gl.bindTexture(gl.TEXTURE_2D, vacia);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([0, 0, 0, 255]));
     for (const c of CANALES) { c.prog = null; c.error = null; c.tex = null; c.cargando = false; }
+    if (tele.activo) prepararTele();
   }
 
   // Obras con imagen: se carga la primera vez que el canal se dibuja; hasta entonces, negro.
   let vacia = null;
 
   function textura(c) {
+    if (c.capa) return texturaCartel(c);
     if (!c.imagen) return vacia;
     if (c.tex) return c.tex;
     if (!c.cargando) {
@@ -312,18 +362,28 @@ void main(){
     return false;
   }
 
-  function limpiar() {
+  function limpiar(W = canvas.width, H = canvas.height) {
     gl.disable(gl.SCISSOR_TEST);
-    gl.viewport(0, 0, canvas.width, canvas.height);
+    gl.viewport(0, 0, W, H);
     gl.clearColor(0, 0, 0, 1);
     gl.clear(gl.COLOR_BUFFER_BIT);
     gl.enable(gl.SCISSOR_TEST);
   }
 
   function dibujarAire(ahora) {
-    const redimensionado = ajustar(estado.escala);
-    const W = canvas.width;
-    const H = canvas.height;
+    let redimensionado, W, H;
+    if (tele.activo) [redimensionado, W, H] = lienzoTele();
+    else {
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      redimensionado = ajustar(estado.escala);
+      W = canvas.width;
+      H = canvas.height;
+    }
+    dibujarEscena(ahora, W, H, redimensionado);
+    if (tele.activo) componerTele(ahora);
+  }
+
+  function dibujarEscena(ahora, W, H, redimensionado) {
     const c = CANALES[estado.actual];
 
     if (estado.cambio) {
@@ -332,12 +392,12 @@ void main(){
         estado.actual = estado.cambio.destino;
         estado.cambio.cambiado = true;
       }
-      if (e < CORTE) { limpiar(); return; }
-      if (e < NIEVE) { limpiar(); dibujarRuido(0, 0, W, H, estado.tiempo, 1); return; }
+      if (e < CORTE) { limpiar(W, H); return; }
+      if (e < NIEVE) { limpiar(W, H); dibujarRuido(0, 0, W, H, estado.tiempo, 1); return; }
       if (e < SINTONIA) {
         const k = (e - NIEVE) / (SINTONIA - NIEVE);
         const prog = programa(CANALES[estado.actual]);
-        limpiar();
+        limpiar(W, H);
         if (prog) dibujar(prog, 0, 0, W, H, estado.tiempo, { rodar: (1 - k) ** 3 * H * 0.42, canal: CANALES[estado.actual] });
         dibujarRuido(0, 0, W, H, estado.tiempo, (1 - k) ** 2);
         return;
@@ -351,7 +411,7 @@ void main(){
     estado.forzar = false;
 
     const prog = c && programa(c);
-    limpiar();
+    limpiar(W, H);
     if (prog) dibujar(prog, 0, 0, W, H, estado.tiempo, { canal: c });
     else dibujarRuido(0, 0, W, H, estado.tiempo, 0.55); // sin señal
   }
@@ -359,6 +419,7 @@ void main(){
   const visibles = new Set();
 
   function dibujarGuia() {
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     ajustar(ESCALA_GUIA);
     limpiar();
     const k = canvas.width / canvas.clientWidth;
@@ -620,6 +681,7 @@ void main(){
       fila('fuente', fuente),
       fila('agregado', fechaCorta(c.fecha)),
       fila('caracteres', String(c.codigo.length)),
+      ...(c.cartel ? [fila('cartel', tele.activo ? 'HTML en vivo' : c.imagen ? 'imagen de respaldo' : 'necesita HTML-in-Canvas')] : []),
       ...(c.imagen ? [fila('imagen', c.imagen)] : []),
     );
     programa(c);
@@ -634,10 +696,15 @@ void main(){
     llenarTeletexto();
     ui.tt.hidden = false;
     ui.osd.classList.remove('visible');
+    tele.abre = performance.now();
+    if (tele.activo) tele.pagina.lista = false;
     reloj();
   }
 
-  function cerrarTeletexto() { ui.tt.hidden = true; }
+  function cerrarTeletexto() {
+    if (!ui.tt.hidden) tele.cierra = performance.now();
+    ui.tt.hidden = true;
+  }
 
   ui.ttCopiar.addEventListener('click', async () => {
     try {
@@ -653,15 +720,222 @@ void main(){
     }
   });
 
+  // ————————————————————————————————————————————— HTML en la señal
+  // Con HTML-in-Canvas (Chrome, por ahora detrás de un flag) el OSD, el teletexto y los
+  // carteles de las obras viven dentro del canvas: el navegador los maqueta, los hace
+  // accesibles y les da los clics, pero no los pinta. Cada uno es una capa: un hijo directo
+  // del canvas, del tamaño del canvas, que se sube como textura cada vez que cambia.
+  // - El OSD y el teletexto los compone TUBO encima de la obra. La obra se dibuja a su
+  //   resolución adaptativa en una textura y las capas a la del dispositivo, para que el
+  //   texto se lea nítido.
+  // - Los carteles no se ven: la obra los lee con foto(), como si fueran su imagen.
+  // Sin la API, el OSD y el teletexto quedan como HTML encima del canvas y las obras con
+  // cartel usan su imagen de respaldo.
+
+  const APERTURA = 180;   // la página entra de golpe y la señal tarda esto en engancharse
+  const CIERRE = 520;     // y se va despacio, como todo lo que sale del aire
+
+  const tele = {
+    activo: false,        // la API existe y las capas están dentro del canvas
+    capas: new Map(),     // hijo del canvas → { el, tex, sucia, lista }
+    rotulo: null,         // la capa del OSD
+    pagina: null,         // la capa del teletexto
+    prog: null, escena: null, fbo: null, w: 0, h: 0,
+    abre: -1e9, cierra: -1e9,
+  };
+
+  function meterEnSenal() {
+    if (!('layoutSubtree' in canvas) || typeof gl.texElementImage2D !== 'function') return;
+    const capa = (clase, contenido) => {
+      const el = document.createElement('div');
+      el.className = `en-senal ${clase}`;
+      if (typeof contenido === 'string') el.innerHTML = contenido; else el.append(contenido);
+      canvas.append(el);
+      const c = { el, tex: null, sucia: true, lista: false };
+      tele.capas.set(el, c);
+      return c;
+    };
+    for (const c of CANALES) {
+      if (!c.cartel) continue;
+      c.capa = capa('cartel', c.cartel);
+      c.capa.el.setAttribute('aria-hidden', 'true');
+      c.capa.el.dataset.canal = c.n;
+    }
+    tele.rotulo = capa('rotulo', ui.osd);
+    tele.pagina = capa('pagina', ui.tt);
+    canvas.setAttribute('layoutsubtree', '');
+    canvas.removeAttribute('aria-hidden');
+    canvas.addEventListener('paint', alPintar);
+    tele.activo = true;
+    prepararTele();
+  }
+
+  function prepararTele() {
+    tele.prog = crearPrograma(TUBO);
+    const u = (n) => gl.getUniformLocation(tele.prog.p, n);
+    Object.assign(tele.prog, {
+      k: u('k'), alfa: u('alfa'), interferencia: u('interferencia'), ruidoRotulo: u('ruidoRotulo'), vivo: u('vivo'),
+      escena: u('escena'), rotulo: u('rotulo'), pagina: u('pagina'),
+    });
+    const nueva = (mipmaps) => {
+      const tex = gl.createTexture();
+      gl.bindTexture(gl.TEXTURE_2D, tex);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, mipmaps ? gl.LINEAR_MIPMAP_LINEAR : gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      // Una textura sin datos se lee como negro opaco: hasta la primera subida, transparente.
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array(4));
+      return tex;
+    };
+    // Los carteles se leen con foto(u, suave), que pide mipmaps.
+    for (const capa of tele.capas.values()) {
+      capa.tex = nueva(capa.el.classList.contains('cartel'));
+      capa.sucia = true;
+      capa.lista = false;
+    }
+    tele.escena = nueva(false);
+    tele.fbo = gl.createFramebuffer();
+    tele.w = tele.h = 0;
+  }
+
+  // El navegador avisa con paint qué capas cambiaron (el OSD que aparece o se apaga, la
+  // página que se llena o se desplaza, el reloj de un cartel). Se marcan y se suben cuando
+  // se usan.
+  function alPintar(e) {
+    for (const el of e.changedElements ?? tele.capas.keys()) {
+      const capa = tele.capas.get(el);
+      if (capa) capa.sucia = true;
+    }
+    if (estado.pausa && CANALES[estado.actual]?.capa?.sucia) estado.forzar = true;
+    // El cuadro de este frame ya se compuso con el OSD y la página viejos: se recompone ahora.
+    if (estado.modo === 'aire') componerTele(performance.now());
+  }
+
+  function subir(capa, tam) {
+    gl.bindTexture(gl.TEXTURE_2D, capa.tex);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+    try {
+      gl.texElementImage2D(gl.TEXTURE_2D, gl.RGBA8, capa.el, tam ? { width: tam[0], height: tam[1] } : {});
+      capa.sucia = false;
+      capa.lista = true;
+      return true;
+    } catch (e) {
+      // Sin pintura todavía (InvalidStateError): se reintenta en el próximo uso. Cualquier
+      // otro error no se arregla reintentando; se espera al próximo paint.
+      if (e.name !== 'InvalidStateError') capa.sucia = false;
+      return false;
+    } finally {
+      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+    }
+  }
+
+  // El cartel se sube a la resolución del dispositivo, no a la del canvas, que baja cuando
+  // la obra pesa. Hasta la primera subida la obra ve negro, como con una imagen que carga.
+  function texturaCartel(c) {
+    const capa = c.capa;
+    if (capa.sucia) {
+      const d = Math.min(window.devicePixelRatio || 1, 2);
+      const tam = [Math.max(1, Math.round(canvas.clientWidth * d)), Math.max(1, Math.round(canvas.clientHeight * d))];
+      if (subir(capa, tam)) {
+        gl.generateMipmap(gl.TEXTURE_2D);
+        c.imagenTam = tam;
+      }
+    }
+    return capa.lista ? capa.tex : vacia;
+  }
+
+  // El canvas pasa a la resolución del dispositivo y la obra se dibuja en tele.escena.
+  function lienzoTele() {
+    let cambio = ajustar(Math.min(window.devicePixelRatio || 1, 2));
+    const w = Math.max(1, Math.round(canvas.clientWidth * estado.escala));
+    const h = Math.max(1, Math.round(canvas.clientHeight * estado.escala));
+    if (tele.w !== w || tele.h !== h) {
+      tele.w = w;
+      tele.h = h;
+      gl.bindTexture(gl.TEXTURE_2D, tele.escena);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, tele.fbo);
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tele.escena, 0);
+      cambio = true;
+    }
+    gl.bindFramebuffer(gl.FRAMEBUFFER, tele.fbo);
+    return [cambio, w, h];
+  }
+
+  function senalTele(ahora) {
+    if (reducido.matches) return { alfa: ui.tt.hidden ? 0 : 1, interferencia: 0, rotulo: 0 };
+    // Un cambio de canal sacude las dos capas: la página, porque la señal es una sola; el
+    // OSD, menos, porque tiene que seguir diciendo adónde se va.
+    let cambio = 0;
+    if (estado.cambio) {
+      const k = Math.min(1, Math.max(0, (ahora - estado.cambio.inicio - NIEVE) / (SINTONIA - NIEVE)));
+      cambio = 0.5 * (1 - k) ** 2;
+    }
+    if (ui.tt.hidden) {
+      const k = Math.min(1, (ahora - tele.cierra) / CIERRE);
+      return { alfa: (1 - k) ** 2, interferencia: Math.max(0.6 * k, cambio), rotulo: 0.6 * cambio };
+    }
+    const apertura = Math.max(0, 1 - (ahora - tele.abre) / APERTURA) ** 2;
+    return { alfa: 1, interferencia: Math.max(apertura, cambio), rotulo: 0.6 * cambio };
+  }
+
+  function componerTele(ahora) {
+    if (!tele.w || gl.isContextLost()) return;
+    if (tele.rotulo.sucia) subir(tele.rotulo);
+    // Mientras la página se apaga no se sube: la página ya vacía borraría la que se va.
+    if (tele.pagina.sucia && !ui.tt.hidden) subir(tele.pagina);
+    const { alfa, interferencia, rotulo } = senalTele(ahora);
+    const W = canvas.width;
+    const H = canvas.height;
+    const p = tele.prog;
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.viewport(0, 0, W, H);
+    gl.scissor(0, 0, W, H);
+    gl.useProgram(p.p);
+    gl.activeTexture(gl.TEXTURE2);
+    gl.bindTexture(gl.TEXTURE_2D, tele.pagina.tex);
+    gl.activeTexture(gl.TEXTURE1);
+    gl.bindTexture(gl.TEXTURE_2D, tele.rotulo.tex);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, tele.escena);
+    gl.uniform1i(p.escena, 0);
+    gl.uniform1i(p.rotulo, 1);
+    gl.uniform1i(p.pagina, 2);
+    gl.uniform2f(p.r, W, H);
+    gl.uniform1f(p.t, ahora / 1000);
+    gl.uniform1f(p.k, W / Math.max(1, canvas.clientWidth));
+    gl.uniform1f(p.alfa, tele.pagina.lista ? alfa : 0);
+    gl.uniform1f(p.interferencia, interferencia);
+    gl.uniform1f(p.ruidoRotulo, rotulo);
+    gl.uniform1f(p.vivo, reducido.matches ? 0 : 1);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+  }
+
   // ————————————————————————————————————————————— reloj
 
   const formatoHora = new Intl.DateTimeFormat('es-AR', { hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23' });
   const formatoDia = new Intl.DateTimeFormat('es-AR', { weekday: 'short', day: '2-digit', month: 'short' });
 
+  // Los carteles pueden tener su propio reloj: un elemento con data-reloj muestra la hora
+  // (hh:mm:ss); con data-reloj="h", "m" o "s", solo esa parte; con "fecha", el día
+  // (dd.mm.aaaa, como el resto del museo), o sus partes "dia", "mes" y "anio"; con
+  // "semana", el día de la semana (lun, mar…).
+  let relojesCartel = [];
+  const formatoFecha = new Intl.DateTimeFormat('es-AR', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' });
+
   function reloj() {
     const d = new Date();
     if (!ui.tt.hidden) ui.ttReloj.textContent = `${formatoDia.format(d)} ${formatoHora.format(d)}`;
     if (!ui.guia.hidden) ui.relojGuia.textContent = formatoHora.format(d).slice(0, 5);
+    if (!relojesCartel.length) return;
+    const partes = Object.fromEntries([...formatoHora.formatToParts(d), ...formatoFecha.formatToParts(d)].map((p) => [p.type, p.value]));
+    const valor = {
+      h: partes.hour, m: partes.minute, s: partes.second,
+      fecha: `${partes.day}.${partes.month}.${partes.year}`, dia: partes.day, mes: partes.month, anio: partes.year,
+      semana: partes.weekday,
+    };
+    for (const el of relojesCartel) el.textContent = valor[el.dataset.reloj] ?? formatoHora.format(d);
   }
   setInterval(reloj, 1000);
 
@@ -781,9 +1055,12 @@ void main(){
   }
 
   prepararGL();
+  meterEnSenal();
+  relojesCartel = [...canvas.querySelectorAll('.cartel [data-reloj]')];
+  reloj();
   armarGuia();
   const inicial = canalDesdeHash();
-  estado.actual = inicial ?? Math.max(0, N - 1);
+  estado.actual = inicial ?? 0;
   if (N) history.replaceState({ canal: estado.actual }, '', `#/${pad(estado.actual + 1)}`);
   programa(CANALES[estado.actual]);
   mostrarOSD();

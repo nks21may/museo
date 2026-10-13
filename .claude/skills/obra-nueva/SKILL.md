@@ -20,7 +20,7 @@ Hacen falta: título, autor, fuente (link) y el código o la idea.
 
 ## 2. El formato
 
-Cada obra se agrega **al final** del array `window.MUSEO_CANALES` en `shaders.js`, así pasa a ser el canal que se ve al abrir el museo:
+Cada obra se agrega **al final** del array `window.MUSEO_CANALES` en `shaders.js` (el museo abre en el canal 01; la obra nueva queda como el último canal):
 
 ```js
 {

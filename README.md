@@ -45,16 +45,25 @@ Las obras se guardan **tal como se publicaron**, en el dialecto de twigl (modo *
 
 Además de lo de twigl, el preludio suma algunas extensiones propias del museo:
 
-- `foto(u)`, `fotoUV(u)`, `margen(u)`, `entera()`: leen la imagen de la obra (`imagen` en la ficha) recortada como `object-fit: cover`.
+- `foto(u)`, `fotoUV(u)`, `margen(u)`, `entera()`: leen la imagen de la obra (`imagen` en la ficha, o su `cartel`) recortada como `object-fit: cover`.
 - `clic`: dónde fue el último clic o toque, si sigue apretado y cuándo empezó.
 - `hayMouse`: 1 mientras hay un mouse sobre la página.
 - `chispa[40]`: el recorrido reciente de una chispa que sigue la x del mouse.
+
+### HTML en la señal
+
+En navegadores con [HTML-in-Canvas](https://github.com/WICG/html-in-canvas), el OSD, el teletexto y los carteles de las obras se meten dentro del canvas. Siguen siendo HTML: se seleccionan, se desplazan, se leen con lector de pantalla y los botones responden. Pero los pinta WebGL:
+
+- **El OSD y el teletexto** pasan por un shader de tubo (`TUBO` en `museo.js`): renglones de barrido y aberración leve. El teletexto, que viene de la emisión, además da tirones sueltos y se llena de nieve al abrirlo y al cambiar de canal. El OSD, que sale del aparato, solo se sacude con el cambio de canal y sigue diciendo adónde se va.
+- **Los carteles** no se ven tal cual: la obra los lee con `foto()`, como si fueran su imagen (ver `cartel` en la ficha).
+
+Hoy solo lo trae Chrome detrás de un flag: `chrome://flags/#canvas-draw-element`, o `--enable-blink-features=CanvasDrawElement` al lanzarlo. Sin la API, el OSD y el teletexto quedan como HTML encima de la obra, igual que siempre, y las obras con cartel usan su `imagen` de respaldo.
 
 La identidad visual (negro absoluto, un solo rojo, títulos en blackletter, estética de señal de TV) está documentada en [DESIGN.md](DESIGN.md); el propósito y los principios del producto, en [PRODUCT.md](PRODUCT.md).
 
 ## Sumar una obra
 
-Agregar un objeto **al final** de `window.MUSEO_CANALES` en [shaders.js](shaders.js). La última obra es el canal que se ve al abrir el museo.
+Agregar un objeto **al final** de `window.MUSEO_CANALES` en [shaders.js](shaders.js). El museo abre en el canal 01, la primera obra del array.
 
 ```js
 {
@@ -63,11 +72,23 @@ Agregar un objeto **al final** de `window.MUSEO_CANALES` en [shaders.js](shaders
   fuente: 'https://x.com/...',     // link al tuit o a twigl; null si no hay
   fecha: '2026-09-25',             // día en que entró a la colección
   imagen: 'obras/foto.jpg',        // opcional; el código la lee con foto(FC.xy/r)
+  cartel: String.raw`<p>...</p>`,  // opcional; HTML que la obra lee con foto() en lugar de la imagen
   codigo: String.raw`...`,         // el código original, sin tocar
 },
 ```
 
 Las imágenes de `obras/` van en `.jpg` o `.webp`: los `.png` no se publican (son capturas de revisión).
+
+#### Obras con cartel
+
+Un `cartel` es HTML del tamaño de la pantalla, con fondo negro y el contenido centrado, que la obra lee con `foto()` en lugar de una imagen: tipografía viva, que se maqueta sola en celular y en escritorio. Tiene las fuentes y las variables del museo (`var(--gotica)`, `var(--osd)`, `var(--mono)`). Un elemento con `data-reloj` muestra la hora y la actualiza cada segundo; con `data-reloj="h"`, `"m"` o `"s"`, solo esa parte; con `"fecha"`, el día (`28.09.2026`) o sus partes `"dia"`, `"mes"` y `"anio"`; con `"semana"`, el día de la semana (`lun`). Los estilos del cartel van en [museo.css](museo.css), con una clase propia (como `.hora-oficial`), y no en la ficha: la CSP del sitio (`style-src 'self'`) bloquea los `style="..."` y los `<style>`.
+
+Como fuera de Chrome con el flag el cartel no existe, la obra necesita una `imagen` de respaldo. [herramientas/cartel.mjs](herramientas/cartel.mjs) la genera: pinta el cartel a 1920×1080 y lo guarda en la ruta de `imagen` de la ficha.
+
+```sh
+node herramientas/cartel.mjs        # la última obra con cartel
+node herramientas/cartel.mjs 24     # o una en particular
+```
 
 Con Claude Code hay dos skills del proyecto que hacen todo el recorrido, incluida la verificación: `obra-nueva` (a partir de código de twigl o de una idea) y `obra-desde-imagen` (a partir de una foto, con efectos de trazos, semitono, grano, etc.).
 
