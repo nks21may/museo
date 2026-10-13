@@ -1,7 +1,7 @@
 # Construye la imagen y la publica en GHCR en cada push a main. El deploy en sí
 # no pasa por acá: el VPS no tiene puertos abiertos (todo entra por el Cloudflare
 # Tunnel, SSH incluido), así que en vez de darle acceso a un runner, el VPS tira:
-# un timer de systemd baja la imagen nueva. Ver deploy/museo-deploy.service.
+# el deploy del repo infra baja la imagen nueva (su stacks/museo).
 #
 # Mismo esquema que bot_discord.
 
