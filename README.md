@@ -111,9 +111,9 @@ Necesita Google Chrome instalado. Las capturas quedan en `herramientas/capturas/
 
 Cada push a `main` dispara [.github/workflows/deploy.yml](.github/workflows/deploy.yml), que construye la imagen Docker (un `nginx-unprivileged` con los archivos estáticos) y la publica en GHCR con los tags `latest` y el SHA del commit. Se guardan las últimas cinco versiones.
 
-El VPS no tiene puertos abiertos: todo entra por un Cloudflare Tunnel. Así que en vez de que GitHub empuje el deploy, el VPS lo tira: un timer de systemd ([deploy/museo-deploy.timer](deploy/museo-deploy.timer)) corre cada dos minutos `git pull`, `docker compose pull` y `docker compose up -d`. Si la imagen no cambió, no pasa nada. La instalación en el VPS está en los comentarios de [deploy/museo-deploy.service](deploy/museo-deploy.service).
+El VPS no tiene puertos abiertos: todo entra por un Cloudflare Tunnel. Así que en vez de que GitHub empuje el deploy, el VPS lo tira, y lo que corre ahí se decide en el repo `infra` (privado): el compose del museo es `stacks/museo/compose.yml` de allá. El deploy de ese repo, un timer de systemd, cada dos minutos baja `latest`, recrea el contenedor si la imagen cambió, espera que quede *healthy* y, si no queda, vuelve a la imagen anterior. Si la imagen no cambió, no pasa nada.
 
-- **Rollback:** `IMAGE_TAG=<sha> docker compose up -d` en el VPS.
+- **Rollback:** si la imagen nueva no queda *healthy*, el deploy vuelve solo a la anterior. Para quedarse en una versión vieja, se fija `ghcr.io/nks21may/museo:<sha>` en el compose de `infra`, con un commit allá.
 - **Probar la imagen local:** `docker compose up -d --build` y abrir <http://127.0.0.1:8420/>.
 - **Qué se publica:** el [Dockerfile](Dockerfile) copia con lista blanca (`index.html`, `museo.css`, `museo.js`, `shaders.js`, `fuentes/`, `obras/`). Lo demás no llega a la imagen.
 - **Cabeceras:** [deploy/nginx.conf](deploy/nginx.conf) define una CSP estricta (`'self'`, sin inline), así que cualquier `<style>`, `style=""` o `<script>` inline en el HTML se rompe en producción: va en `museo.css` o `museo.js`.
