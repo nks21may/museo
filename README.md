@@ -105,7 +105,7 @@ node verificar.mjs 3      # o uno en particular
 
 Necesita Google Chrome instalado. Las capturas quedan en `herramientas/capturas/` (ignorada por git). Los flags de GPU que usa (`--use-angle=d3d11`) son de Windows.
 
-[twigl/](twigl/) es un banco de pruebas aparte: `ver.html` emula el entorno de twigl para probar shaders sueltos (`twigl/*.glsl`, compilados a `obras.js`) sin pasar por el museo. No se publica.
+[twigl/](twigl/) es un banco de pruebas aparte: `ver.html` emula el entorno de twigl para probar shaders sueltos (`twigl/*.glsl`, compilados a `obras.js`) sin pasar por el museo. No va a la imagen.
 
 ## Deploy
 
@@ -115,7 +115,7 @@ El VPS no tiene puertos abiertos: todo entra por un Cloudflare Tunnel. Así que 
 
 - **Rollback:** si la imagen nueva no queda *healthy*, el deploy vuelve solo a la anterior. Para quedarse en una versión vieja, se fija `ghcr.io/nks21may/museo:<sha>` en el compose de `infra`, con un commit allá.
 - **Probar la imagen local:** `docker compose up -d --build` y abrir <http://127.0.0.1:8420/>.
-- **Qué se publica:** el [Dockerfile](Dockerfile) copia con lista blanca (`index.html`, `museo.css`, `museo.js`, `shaders.js`, `fuentes/`, `obras/`). Lo demás no llega a la imagen.
+- **Qué se publica:** el [Dockerfile](Dockerfile) copia con lista blanca (`index.html`, `museo.css`, `museo.js`, `shaders.js`, los dos favicons, `fuentes/` y `obras/`). Lo demás no llega a la imagen.
 - **Cabeceras:** [deploy/nginx.conf](deploy/nginx.conf) define una CSP estricta (`'self'`, sin inline), así que cualquier `<style>`, `style=""` o `<script>` inline en el HTML se rompe en producción: va en `museo.css` o `museo.js`.
 
 El contenedor corre read-only, sin capabilities y escuchando solo en loopback.
