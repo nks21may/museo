@@ -40,6 +40,7 @@ Sirve el museo en <http://127.0.0.1:8420/> (y en Windows lo abre solo). `abrir-m
 | [museo.css](museo.css) | Estilos |
 | [fuentes/](fuentes/) | UnifrakturMaguntia, Doto y Martian Mono, servidas localmente |
 | [obras/](obras/) | Imágenes que leen las obras hechas a partir de una foto |
+| [vista.mp4](vista.mp4) | La vista previa que muestra el hub: un loop de 7,5 s con tres canales (ver [Vista previa](#vista-previa)) |
 
 Las obras se guardan **tal como se publicaron**, en el dialecto de twigl (modo *geekest 300 es*: `FC`, `r`, `t`, `o`, `hsv`, `rotate3D`, variables sin inicializar). `museo.js` las traduce al cargar: les antepone un preludio con los uniforms y las funciones que twigl da gratis, e inicializa en cero las variables declaradas sin valor, porque GLSL no lo garantiza.
 
@@ -105,6 +106,21 @@ node verificar.mjs 3      # o uno en particular
 
 Necesita Google Chrome instalado. Las capturas quedan en `herramientas/capturas/` (ignorada por git). Los flags de GPU que usa (`--use-angle=d3d11`) son de Windows.
 
+### Vista previa
+
+[vista.mp4](vista.mp4) es lo que muestra el hub (<https://hub.nicolasdalessandro.dev>) en el recuadro del museo, pedido directo a <https://museo.nicolasdalessandro.dev/vista.mp4>. Es un loop de 7,5 s con tres canales en vivo; el loop empieza en el corte de un cambio de canal y termina en el canal estable anterior, así que al reiniciar se ve como un cambio más.
+
+El formato es un contrato con el hub (ADR-0010 de ese repo): MP4 H.264 **sin pista de audio**, 640×480, hasta 8 s y hasta 1,5 MB. [herramientas/vista.mjs](herramientas/vista.mjs) lo graba y comprueba el contrato (sale con código 1 si no se cumple):
+
+```sh
+cd herramientas
+npm install
+node vista.mjs            # canales 8, 9 y 10
+node vista.mjs 13 14 15   # otros tres, consecutivos
+```
+
+Abre Chrome **con ventana** (headless no usa la GPU) a 1280×960, toma el screencast mientras cambia de canal y lo baja a 640×480 con ffmpeg: necesita `ffmpeg` y `ffprobe` en el `PATH`, además de Google Chrome. Prueba CRF de a uno y se queda con el más bajo que entra en 1,5 MB. Hay que volver a grabarlo si cambia el aspecto del museo (el OSD, la tipografía) o si las obras elegidas cambian de canal.
+
 [twigl/](twigl/) es un banco de pruebas aparte: `ver.html` emula el entorno de twigl para probar shaders sueltos (`twigl/*.glsl`, compilados a `obras.js`) sin pasar por el museo. No va a la imagen.
 
 ## Deploy
@@ -115,7 +131,8 @@ El VPS no tiene puertos abiertos: todo entra por un Cloudflare Tunnel. Así que 
 
 - **Rollback:** si la imagen nueva no queda *healthy*, el deploy vuelve solo a la anterior. Para quedarse en una versión vieja, se fija `ghcr.io/nks21may/museo:<sha>` en el compose de `infra`, con un commit allá.
 - **Probar la imagen local:** `docker compose up -d --build` y abrir <http://127.0.0.1:8420/>.
-- **Qué se publica:** el [Dockerfile](Dockerfile) copia con lista blanca (`index.html`, `museo.css`, `museo.js`, `shaders.js`, los dos favicons, `fuentes/` y `obras/`). Lo demás no llega a la imagen.
+- **Qué se publica:** el [Dockerfile](Dockerfile) copia con lista blanca (`index.html`, `museo.css`, `museo.js`, `shaders.js`, los dos favicons, `vista.mp4`, `fuentes/` y `obras/`). Lo demás no llega a la imagen.
 - **Cabeceras:** [deploy/nginx.conf](deploy/nginx.conf) define una CSP estricta (`'self'`, sin inline), así que cualquier `<style>`, `style=""` o `<script>` inline en el HTML se rompe en producción: va en `museo.css` o `museo.js`.
+- **`vista.mp4`:** lo pide el hub desde otro origen con `<video muted loop playsInline autoPlay>`. nginx lo sirve como `video/mp4`, responde `Range` con 206 (Safari no lo reproduce sin eso) y lo cachea una hora (`max-age=3600`: el nombre es fijo). No lleva `Cross-Origin-Resource-Policy`, que lo bloquearía, ni CSP, que solo impide abrirlo en una pestaña.
 
 El contenedor corre read-only, sin capabilities y escuchando solo en loopback.

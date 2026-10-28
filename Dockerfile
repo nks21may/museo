@@ -9,7 +9,10 @@ FROM nginxinc/nginx-unprivileged:1.29-alpine
 # se publica. .git/, .claude/, .impeccable/, herramientas/, twigl/ (el banco de
 # pruebas) y los .md de diseño quedan afuera aunque alguien se olvide de
 # ignorarlos. Los PNG ni siquiera llegan al contexto: ver .dockerignore.
-COPY --chown=root:root index.html museo.css museo.js shaders.js favicon.svg favicon.ico /usr/share/nginx/html/
+#
+# vista.mp4 es la vista previa que el hub pide desde su propio origen
+# (herramientas/vista.mjs la graba).
+COPY --chown=root:root index.html museo.css museo.js shaders.js favicon.svg favicon.ico vista.mp4 /usr/share/nginx/html/
 COPY --chown=root:root fuentes /usr/share/nginx/html/fuentes
 COPY --chown=root:root obras /usr/share/nginx/html/obras
 
